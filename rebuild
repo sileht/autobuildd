@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if [ $# -ne 3 ]; then
+	echo "usage: $(basename $0) dist arch package_version"
+	exit 1
+fi
+
+dist=$1
+arch=$2
+name_version=$3
+
+export REPREPRO_BASE_DIR=$HOME/archive/debian/
+
+# Now build packages
+pushd $HOME/build > /dev/null
+[ $arch = amd64 ] && opts="-A" || opts=""
+sbuild -v --batch --dist=$dist --arch=$arch $opts $name_version
+ret=$?
+if [ $ret -eq 0 ]; then
+	reprepro processincoming built ${name_version}_$arch.changes
+else
+	echo "$name_version ${dist} ${arch}" | tee -a $HOME/build/failed
+fi
+popd > /dev/null

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+
+SCHROOT="schroot --all-source-chroots -u root -d /root -- "
+$SCHROOT apt-get update 
+$SCHROOT apt-get dist-upgrade -y

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+[ -z "$1" ] && [ -f $HOME/NO-INCOMING-PLEASE ] && exit
+
+
+# Exclusive lock
+( flock -n -x 250 ||exit
+
+export REPREPRO_BASE_DIR=$HOME/archive/debian/
+reprepro -V processincoming src
+
+# Dont automatically build armel
+{
+	cat $HOME/build/dont-build
+	$HOME/list-needs-build | awk '{ if ($3 == "armel" ) print $0 ;}'
+} | sort | uniq > $HOME/build/dont-build.new
+
+mv -f $HOME/build/dont-build.new $HOME/build/dont-build
+
+
+) 250>/var/lock/sbuildbot-process-incoming

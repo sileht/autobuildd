@@ -1,0 +1,12 @@
+#!/bin/bash
+
+
+export REPREPRO_BASE_DIR=$HOME/archive/debian/
+
+for dist in lenny squeeze sid; do
+	for arch in amd64 i386 armel; do
+		reprepro build-needing  $dist $arch | while read NAME VERSION DESC ; do
+			echo "${NAME}_${VERSION} $dist $arch" 
+		done
+	done
+done
