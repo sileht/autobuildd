@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# GPLv2.
+# (C) 2011 Mehdi Abaakouk
 
 export REPREPRO_BASE_DIR=$HOME/archive/debian/
 

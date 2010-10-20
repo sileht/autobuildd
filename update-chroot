@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# GPLv2.
+# (C) 2011 Mehdi Abaakouk
 
 SCHROOT="schroot --all-source-chroots -u root -d /root -- "
 $SCHROOT apt-get update 

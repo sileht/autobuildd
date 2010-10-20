@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# GPLv2.
+# (C) 2011 Mehdi Abaakouk
+
 if [ $# -ne 3 ]; then
 	echo "usage: $(basename $0) dist arch package_version"
 	exit 1

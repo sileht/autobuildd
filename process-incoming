@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# GPLv2.
+# (C) 2011 Mehdi Abaakouk
+
 [ -z "$1" ] && [ -f $HOME/NO-INCOMING-PLEASE ] && exit
 
 export REPREPRO_BASE_DIR=$HOME/archive/debian/
