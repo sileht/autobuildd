@@ -28,9 +28,8 @@ while true; do
 			DIST=$2
 			shift ; shift
 			;;
-		-*)
-			echo "* Option $1 incorrect"
-			exit 
+		--)
+			shift ; break ;
 			;;
 	esac
 done
