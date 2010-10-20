@@ -11,13 +11,13 @@ find $REPREPRO_BASE_DIR/incoming | grep '.changes$' >/dev/null|| exit
 
 reprepro -V processincoming src
 
-# Dont automatically build armel
-{
-	cat $HOME/build/dont-build
-	$HOME/bin/list-needs-build | awk '{ if ($3 == "armel" ) print $0 ;}'
-} | sort | uniq > $HOME/build/dont-build.new
-
-mv -f $HOME/build/dont-build.new $HOME/build/dont-build
-
+## Dont automatically build armel
+#{
+#	cat $HOME/build/dont-build
+#	$HOME/bin/list-needs-build | awk '{ if ($3 == "armel" ) print $0 ;}'
+#} | sort | uniq > $HOME/build/dont-build.new
+#
+#mv -f $HOME/build/dont-build.new $HOME/build/dont-build
+#
 
 ) 250>/var/lock/sbuildbot-process-incoming
