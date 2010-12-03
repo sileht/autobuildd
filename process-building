@@ -2,7 +2,7 @@
 
 # GPLv2.
 # (C) 2011 Mehdi Abaakouk
-[ -z "$1" ] && [ -f $HOME/NO-BUILDING-PLEASE ] && exit
+[ -z "$1" ] && [ -e $HOME/NO-BUILDING-PLEASE ] && exit
 
 export REPREPRO_BASE_DIR=$HOME/archive/debian/
 
@@ -10,8 +10,11 @@ export REPREPRO_BASE_DIR=$HOME/archive/debian/
 ( flock -n -x 250 ||exit
 
 clean_stop(){
-	reprepro -V processincoming built
-	exit 
+	( 
+		flock -x 190
+		reprepro -V processincoming built
+		exit 
+	) 190>/var/lock/sbuildbot-process-incoming
 }
 trap clean_stop KILL INT
 
@@ -48,7 +51,7 @@ for dist in $DIST; do
 				nice -n 10 sbuild -v --batch --dist=$dist --arch=$arch $opts ${NAME}_${VERSION}
 				[ $? -ne 0 ] && echo "${NAME}_${VERSION} ${dist} ${arch}" | tee -a $HOME/build/failed
 			fi
-			[ -z "$1" ] && [ -f $HOME/NO-BUILDING-PLEASE ] && exit
+			[ -z "$1" ] && [ -e $HOME/NO-BUILDING-PLEASE ] && exit
 		done
 	done
 done
