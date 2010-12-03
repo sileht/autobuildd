@@ -3,4 +3,5 @@
 # GPLv2.
 # (C) 2011 Mehdi Abaakouk
 
-reprepro -Vb $HOME/archive/seeks/ --noskipold update
+reprepro -Vb $HOME/archive/seeks/ --noskipold update  >/dev/null 2>&1
+[ $? -ne 0 ] && echo "Failed to update seeks repo"
