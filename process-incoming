@@ -3,15 +3,20 @@
 # GPLv2.
 # (C) 2011 Mehdi Abaakouk
 
-[ -z "$1" ] && [ -f $HOME/NO-INCOMING-PLEASE ] && exit
+[ -z "$1" ] && [ -f $HOME/NO-INCOMING-PLEASE ] && exit 0
 
 export REPREPRO_BASE_DIR=$HOME/archive/debian/
 
-find $REPREPRO_BASE_DIR/incoming | grep '.changes$' >/dev/null|| exit
-
 # Exclusive lock
-( flock -n -x 250 ||exit
-
-reprepro -V processincoming src
-
-) 250>/var/lock/sbuildbot-process-incoming
+if mkdir /var/lock/sbuildbot-process-incoming &>/dev/null; then
+    find $REPREPRO_BASE_DIR/incoming | grep '.changes$' >/dev/null
+    if [ $? -eq 0 ]; then
+        reprepro -V processincoming src
+        reprepro -V processincoming built
+    else
+        echo "Nothing to import"
+    fi
+    rmdir /var/lock/sbuildbot-process-incoming
+else
+    echo "Incoming process already running"
+fi

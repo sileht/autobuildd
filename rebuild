@@ -19,13 +19,7 @@ pushd $HOME/build > /dev/null
 [ $arch = amd64 ] && opts="-A" || opts=""
 sbuild -v --batch --dist=$dist --arch=$arch $opts $name_version
 ret=$?
-if [ $ret -eq 0 ]; then
-	( 
-		flock -x 190
-		reprepro processincoming built ${name_version}_$arch.changes
-		exit 
-	) 190>/var/lock/sbuildbot-process-incoming
-else
+if [ $ret -ne 0 ]; then
 	echo "$name_version ${dist} ${arch}" | tee -a $HOME/build/failed
 fi
 popd > /dev/null
