@@ -36,10 +36,11 @@ error() {
 if echo "$1" | egrep -q '^(ht|f)tp://'; then
     MIRROR="$1"
     shift
-else
-    MIRROR="http://ftp.debian.org/debian/"
-    [ -z ${MIRROR} ] && error "no mirror specified (neither on command line nor in /etc/schroot/conf.buildd)"
 fi
+#else
+#    MIRROR="http://ftp.debian.org/debian/"
+#    [ -z ${MIRROR} ] && error "no mirror specified (neither on command line nor in /etc/schroot/conf.buildd)"
+#fi
 
 
 ARCH="$(dpkg --print-architecture)"
@@ -54,11 +55,6 @@ LVSIZE="$3"
 # This might need an adjustment if you are creating chroots different
 # from the host architecture.  (Not tested.)
 
-if [ -z "$MIRROR" ]
-then
-    usage "No mirror specified!"
-fi
-
 if [ -z "$SUITE" ]
 then
     usage "No suite specified!"
@@ -70,15 +66,28 @@ then
 fi
 
 BASE="$SUITE"
-OLDSTABLE="etch"
-STABLE="lenny"
-TESTING="squeeze"
+OLDSTABLE="lenny"
+STABLE="squeeze"
+TESTING="wheezy"
+
 case "$SUITE" in
+    oldstable) BASE=$OLDSTABLE ;;
     stable) BASE=$STABLE ;;
     testing) BASE=$TESTING ;;
     unstable) BASE="sid" ;;
+    lucid|karmic|maverick) BASE=$SUITE ;;
     *) usage "Invalid suite specified (must be symbolic, e.g. 'stable')!" ;;
 esac
+
+case "$SUITE" in
+	lucid|karmic|maverick)	[ -z ${MIRROR} ] && MIRROR="http://archive.ubuntu.com/ubuntu/";;
+	*)			[ -z ${MIRROR} ] && MIRROR="http://ftp.debian.org/debian/";;
+esac
+
+if [ -z "$MIRROR" ]
+then
+    usage "No mirror specified!"
+fi
 
 echo "I: Building environment for $SUITE"
 echo "I: Mirror: $MIRROR"
@@ -179,7 +188,7 @@ device=/dev/${VGNAME}/buildd-${IDENTIFIER}-${ARCH}
 lvm-snapshot-options=--size ${LVSIZE}
 source-users=buildd
 source-root-users=buildd
-script-config=script-defaults.buildd
+script-config=script-defaults.mybuildd
 EOT
         SCHROOT="schroot -c ${IDENTIFIER}-${ARCH}-sbuild-source -u root -d /root --"
     fi
@@ -202,14 +211,32 @@ setup_local_archive() {
 setup_sources() {
     echo "I: Setting up sources..."
     TEMPFILE="$(mktemp)"
-    cat > "${TEMPFILE}" <<EOT
+
+    case "$BASE" in 
+	lucid|karmic|maverick)
+		case $BASE in
+			lucid) BASE_D="sid";;
+			karmic) BASE_D="lenny";;
+			maverick) BASE_D="sid";;
+			*) BASE_D=$BASE;;
+		esac
+		cat > "${TEMPFILE}" <<EOT
+deb ${MIRROR} ${BASE} main universe multiverse
+deb-src ${MIRROR} ${BASE} main universe multiverse
+deb http://archive.sileht.net/debian/ ${BASE_D} main
+deb-src http://archive.sileht.net/debian/ ${BASE_D} main
+EOT
+;;
+	*)
+		cat > "${TEMPFILE}" <<EOT
 # local mirror
 deb ${MIRROR} ${BASE} main contrib
 deb-src ${MIRROR} ${BASE} main contrib
 deb http://archive.sileht.net/debian/ ${BASE} main
 deb-src http://archive.sileht.net/debian/ ${BASE} main
 EOT
-
+     ;;
+     esac
 #    if [ "$VARIANT" = "edu" ]; then
 #        echo "I: Adding edu entries to sources.list..."
 #        cat >> "${TEMPFILE}" <<EOT
@@ -324,28 +351,31 @@ adjust_debconf() {
 }
 
 adjust_dpkg() {
-    if [ "${BASE}" != "etch" ] && [ "${BASE}" != "lenny" ]; then
-        ensure_target_mounted
-        echo "I: Adding apt.conf..."
-        TEMPFILE="$(mktemp)"
-        cat > "${TEMPFILE}" <<EOT
+    case "$BASE" in
+	    etch|lenny|karmic) return ;;
+	    *)
+		ensure_target_mounted
+		echo "I: Adding apt.conf..."
+		TEMPFILE="$(mktemp)"
+		cat > "${TEMPFILE}" <<EOT
 APT::Install-Recommends 0;
 Acquire::PDiffs "false";
 EOT
-        sudo mv "${TEMPFILE}" "${TARGET}/etc/apt/apt.conf.d/99buildd"
-        sudo chown root: "${TARGET}/etc/apt/apt.conf.d/99buildd"
-        sudo chmod 0644 "${TARGET}/etc/apt/apt.conf.d/99buildd"
+		sudo mv "${TEMPFILE}" "${TARGET}/etc/apt/apt.conf.d/99buildd"
+		sudo chown root: "${TARGET}/etc/apt/apt.conf.d/99buildd"
+		sudo chmod 0644 "${TARGET}/etc/apt/apt.conf.d/99buildd"
 
-        TEMPFILE="$(mktemp)"
-        cat > "${TEMPFILE}" <<EOT
+		TEMPFILE="$(mktemp)"
+		cat > "${TEMPFILE}" <<EOT
 force-confnew
 EOT
-        sudo mv "${TEMPFILE}" "${TARGET}/etc/dpkg/dpkg.cfg.d/force-confnew"
-        sudo chown root: "${TARGET}/etc/dpkg/dpkg.cfg.d/force-confnew"
-        sudo chmod 0644 "${TARGET}/etc/dpkg/dpkg.cfg.d/force-confnew"
+		sudo mv "${TEMPFILE}" "${TARGET}/etc/dpkg/dpkg.cfg.d/force-confnew"
+		sudo chown root: "${TARGET}/etc/dpkg/dpkg.cfg.d/force-confnew"
+		sudo chmod 0644 "${TARGET}/etc/dpkg/dpkg.cfg.d/force-confnew"
 
-        ensure_target_unmounted
-    fi
+		ensure_target_unmounted
+	;;
+    esac
 }
 
 setup_sbuild() {
@@ -416,6 +446,7 @@ EOT
 #    add_arch_specific_debfoster_item "$TEMPFILE" sparc libc6-sparcv9b
 
     ensure_target_mounted
+    sudo mkdir -p "${TARGET}/var/lib/debfoster/keepers"
     sudo mv "${TEMPFILE}" "${TARGET}/var/lib/debfoster/keepers"
     sudo chown root: "${TARGET}/var/lib/debfoster/keepers"
     sudo chmod 0644 "${TARGET}/var/lib/debfoster/keepers"
