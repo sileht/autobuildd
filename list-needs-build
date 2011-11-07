@@ -5,10 +5,13 @@
 
 export REPREPRO_BASE_DIR=$HOME/archive/debian/
 
-for dist in lenny squeeze sid; do
+for dist in squeeze wheezy sid; do
 	for arch in amd64 i386 armel; do
 		reprepro build-needing  $dist $arch | while read NAME VERSION DESC ; do
-			echo "${NAME}_${VERSION} $dist $arch" 
+			case $1 in
+                -s|--sh) echo "process-building -d $dist -a $arch -q ${NAME}" ;;
+                *) echo "${NAME}_${VERSION} $dist $arch" ;;
+            esac
 		done
 	done
 done

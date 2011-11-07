@@ -5,6 +5,6 @@
 
 export REPREPRO_BASE_DIR=$HOME/archive/debian/
 
-for dist in lenny squeeze sid; do
+for dist in squeeze wheezy sid; do
 	reprepro list $dist $1
 done

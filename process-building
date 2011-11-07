@@ -3,18 +3,48 @@
 # GPLv2.
 # (C) 2011 Mehdi Abaakouk
 
+usage(){
+cat <<EOF
+usage: $(basename $0) [-q] [--nice 10] [-f|--force] [-a|--arch ARCH] [-d|--dist DIST] [PACKAGE_NAME]
+EOF
+exit 1
+}
+
+clean_exit(){
+    rmdir /var/lock/sbuildbot-process &>/dev/null
+    exit 0
+}
+
+check_for_exit(){
+    if [ -z "$PACKAGE_NAME" ] && [ -z "$FORCE" ] && [ -e $HOME/NO-BUILDBOT-PROCESS ] ; then
+        exit 0
+    fi
+}
+
 export REPREPRO_BASE_DIR=$HOME/archive/debian/
 
-if mkdir /var/lock/sbuildbot-process-building &>/dev/null; then
-    trap 'exit 0' KILL INT
+if mkdir /var/lock/sbuildbot-process &>/dev/null; then
+    trap 'clean_exit' EXIT
 
     ARCH="amd64 i386"
-    DIST="sid squeeze lenny"
+    DIST="sid squeeze wheezy"
+    NICE=10
+    FORCE=
 
-    OPT_ARGS=$(getopt -o a:,d: -l arch:,dist: -n "$(basename $0)" -- "$@")
+    OPT_ARGS=$(getopt -o h,q,f,a:,d: -l help,nice:,force,arch:,dist: -n "$(basename $0)" -- "$@")
     eval set -- "$OPT_ARGS"
     while true; do
         case $1 in
+            --nice)
+                NICE=$2
+                shift ; shift
+                ;;
+            -f|--force) 
+                FORCE=1 ; shift 
+                ;;
+            -q) 
+                NICE=0 ; shift 
+                ;;
             -a|--arch)
                 ARCH=$2
                 shift ; shift
@@ -23,31 +53,46 @@ if mkdir /var/lock/sbuildbot-process-building &>/dev/null; then
                 DIST=$2
                 shift ; shift
                 ;;
+            -h|--help)
+                usage ;;
             --)
                 shift ; break ;
                 ;;
         esac
     done
 
-    [ -z "$1" ] && [ -e $HOME/NO-BUILDING-PLEASE ] && exit 0
+    PACKAGE_NAME=$1
+
+    check_for_exit
 
     pushd $HOME/build >/dev/null 
     for dist in $DIST; do
         for arch in $ARCH; do
-            reprepro build-needing $dist $arch | while read NAME VERSION DSC ;do 
-                if [ -z "$1" -o "$NAME" == "$1" ]; then
-                    grep "${NAME}_${VERSION} ${dist} ${arch}" $HOME/build/dont-build > /dev/null 2>&1 && continue
-                    grep "${NAME}_${VERSION} ${dist} ${arch}" $HOME/build/failed > /dev/null 2>&1 && continue
+            reprepro build-needing $dist $arch | while read name version desc ;do 
+                if [ -z "$PACKAGE_NAME" -o "$name" == "$PACKAGE_NAME" ]; then
+                
+                    if [ -z "$FORCE" ]; then
+                        grep "${name}_${version} ${dist} ${arch}" $HOME/build/dont-build $HOME/build/failed &>/dev/null && continue
+                    else
+                        sed -i "/${name}_${version} ${dist} ${arch}/d" $HOME/build/failed 
+                    fi
+
                     [ $arch = amd64 ] && opts="-A" || opts=""
-                    nice -n 10 sbuild -v --batch --dist=$dist --arch=$arch $opts ${NAME}_${VERSION}
-                    [ $? -ne 0 ] && echo "${NAME}_${VERSION} ${dist} ${arch}" | tee -a $HOME/build/failed
+                    cmd="nice -n $NICE sbuild -v --batch --dist=$dist --arch=$arch $opts ${name}_${version}"
+
+                    echo "$cmd"
+                    $cmd
+                    ret=$?
+
+                    if [ $ret -ne 0 ]; then
+                        echo "${name}_${version} ${dist} ${arch}" | tee -a $HOME/build/failed
+                    fi
                 fi
-                [ -z "$1" ] && [ -e $HOME/NO-BUILDING-PLEASE ] && exit 0
+                check_for_exit
             done
         done
     done
     popd >/dev/null
-    rmdir /var/lock/sbuildbot-process-building &>/dev/null
 else
     echo "Building process already running"
 fi

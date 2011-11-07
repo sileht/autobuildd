@@ -1,0 +1,14 @@
+#!/bin/bash
+
+IFS=$'\n'
+select data in $(list-needs-build) ;do  
+    unset IFS
+    package_name=${data%% *}
+    package_name=${package_name%%_*}
+    arch=${data##* }
+    dist=${data% *}
+    dist=${dist#* }
+    cmd="process-building -f --arch $arch --dist $dist $package_name"
+    echo $cmd
+    exec $cmd
+done

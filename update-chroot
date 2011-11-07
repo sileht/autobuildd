@@ -4,5 +4,6 @@
 # (C) 2011 Mehdi Abaakouk
 
 SCHROOT="schroot --all-source-chroots -u root -d /root -- "
+$SCHROOT sed -i -e 's,ftp.debian.org,mirror.ovh.net,g' /etc/apt/sources.list
 $SCHROOT apt-get update 
 $SCHROOT apt-get dist-upgrade -y

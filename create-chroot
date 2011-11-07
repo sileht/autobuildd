@@ -75,13 +75,13 @@ case "$SUITE" in
     stable) BASE=$STABLE ;;
     testing) BASE=$TESTING ;;
     unstable) BASE="sid" ;;
-    lucid|karmic|maverick) BASE=$SUITE ;;
+    oneiric|lucid|karmic|maverick) BASE=$SUITE ;;
     *) usage "Invalid suite specified (must be symbolic, e.g. 'stable')!" ;;
 esac
 
 case "$SUITE" in
-	lucid|karmic|maverick)	[ -z ${MIRROR} ] && MIRROR="http://archive.ubuntu.com/ubuntu/";;
-	*)			[ -z ${MIRROR} ] && MIRROR="http://ftp.debian.org/debian/";;
+	oneiric|lucid|karmic|maverick)	[ -z ${MIRROR} ] && MIRROR="ftp://mirror.ovh.net/ubuntu/";;
+	*)			[ -z ${MIRROR} ] && MIRROR="ftp://mirror.ovh.net/debian/";;
 esac
 
 if [ -z "$MIRROR" ]
@@ -119,7 +119,7 @@ if [ "$ARCH" != "$HOST_ARCH" ] ; then
     esac
 fi
 
-TARGET=~buildd/chroots/$IDENTIFIER
+TARGET=~buildd/chroots/$IDENTIFIER-${ARCH}
 echo "I: Chroot target: $TARGET"
 
 check_prerequisites() {
@@ -178,16 +178,22 @@ root-users=buildd
 aliases=${SUITEEXTRA}-${ARCH}-sbuild
 EOT
     if [ -z "$VGNAME" ]; then
-        echo "type=directory" >> "${TEMPFILE}"
-        echo "directory=${TARGET}" >> "${TEMPFILE}"
+        cat >>"${TEMPFILE}" <<EOT
+type=directory
+directory=${TARGET}
+union-type=aufs
+source-users=buildd,sbuild
+source-root-users=buildd,sbuild
+script-config=script-defaults.mybuildd
+EOT
         SCHROOT="schroot -c ${IDENTIFIER}-${ARCH}-sbuild -u root -d /root --"
     else
         cat >>"${TEMPFILE}" <<EOT
 type=lvm-snapshot
 device=/dev/${VGNAME}/buildd-${IDENTIFIER}-${ARCH}
 lvm-snapshot-options=--size ${LVSIZE}
-source-users=buildd
-source-root-users=buildd
+source-users=buildd,sbuild
+source-root-users=buildd,sbuild
 script-config=script-defaults.mybuildd
 EOT
         SCHROOT="schroot -c ${IDENTIFIER}-${ARCH}-sbuild-source -u root -d /root --"
@@ -213,9 +219,10 @@ setup_sources() {
     TEMPFILE="$(mktemp)"
 
     case "$BASE" in 
-	lucid|karmic|maverick)
+	oneiric|lucid|karmic|maverick)
 		case $BASE in
 			lucid) BASE_D="sid";;
+			oneiric) BASE_D="sid";;
 			karmic) BASE_D="lenny";;
 			maverick) BASE_D="sid";;
 			*) BASE_D=$BASE;;
@@ -495,6 +502,7 @@ ensure_target_unmounted() {
 
 cd ~buildd/
 #>check_prerequisites
+check_prerequisites
 if [ -z "$VGNAME" ]; then
     cd ~buildd/chroots
 fi

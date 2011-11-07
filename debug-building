@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# GPLv2.
+# (C) 2011 Mehdi Abaakouk
+
+usage(){
+cat <<EOF
+usage: $(basename $0) [-q] [--nice 10] [-f|--force] -a|--arch ARCH -d|--dist DIST PACKAGE_NAME
+EOF
+clean_exit
+}
+
+clean_exit(){
+    rmdir /var/lock/sbuildbot-process &>/dev/null
+    exit 0
+}
+
+check_for_exit(){
+    if [ -z "$PACKAGE_NAME" ] && [ -e $HOME/NO-BUILDBOT-PROCESS ] ; then
+        clean_exit
+    fi
+}
+
+export REPREPRO_BASE_DIR=$HOME/archive/debian/
+
+if mkdir /var/lock/sbuildbot-process &>/dev/null; then
+    trap 'clean_exit' KILL INT
+
+    ARCH="amd64"
+    DIST="sid"
+    NICE=10
+    FORCE=
+
+    OPT_ARGS=$(getopt -o h,q,f,a:,d: -l help,nice:,force,arch:,dist: -n "$(basename $0)" -- "$@")
+    eval set -- "$OPT_ARGS"
+    while true; do
+        case $1 in
+            --nice)
+                NICE=$2
+                shift ; shift
+                ;;
+            -f|--force) 
+                FORCE=1 ; shift 
+                ;;
+            -q) 
+                NICE=0 ; shift 
+                ;;
+            -a|--arch)
+                ARCH=$2
+                shift ; shift
+                ;;
+            -d|--dist)
+                DIST=$2
+                shift ; shift
+                ;;
+            -h|--help)
+                usage ;;
+            --)
+                shift ; break ;
+                ;;
+        esac
+    done
+
+    PACKAGE_NAME=$1
+    [ -z "$PACKAGE_NAME" ] && usage
+
+    check_for_exit
+
+    pushd $HOME/build >/dev/null 
+    dist=$DIST
+    arch=$ARCH
+    reprepro build-needing $dist $arch $PACKAGE_NAME | while read name version desc ;do 
+
+            cmd="nice -n $NICE schroot -u root -d /root"
+            session_name=$($cmd --begin-session -c chroot:$dist-$arch-sbuild -n debug-session )
+            echo "Session begin: $session_name"
+            $cmd -r -c $session_name -- apt-get update --yes --force-yes
+            $cmd -r -c $session_name -- apt-get build-deps --yes --force-yes ${name}=${version}
+            $cmd -r -c $session_name -- apt-get install --yes --force-yes vim-nox
+            $cmd -r -c $session_name -- apt-get source --yes --force-yes ${name}=${version}
+            $cmd -r -c $session_name -- /bin/bash -c "echo syn on > /root/.vimrc"
+            echo $cmd -r -c $session_name -- /bin/bash
+            echo "Session end $session_name"
+            echo $cmd -c $session_name --end-session
+    done
+    popd >/dev/null
+    clean_exit
+else
+    echo "Building process already running"
+fi
